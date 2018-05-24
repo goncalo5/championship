@@ -36,192 +36,270 @@ def get_values(args):
     return values
 
 
-def ask(choises):
-    skip = 0
-    while True:
-        print "\n\nWhat do you perfer?  ({} to skip)".format(skip)
-        answer = raw_input("1 - {}  vs  2 - {}   ".format(choises[0], choises[1]))
-        if answer in ["q", "quit"]:
-            return answer
-        try:
-            answer = int(answer)
-        except ValueError:
-            print "please select {}, 1 or 2".format(skip)
-            continue
-    convert = {1: 1, 2: 0}
-    if answer in [skip, 1, 2]:
-        return choises[convert[answer]]
-    else:
-        print "\nplease insert {} to skip, if you don't know what is the better".format(skip)
-        print "or 1 for {} or 2 for {}\n\n\n".format(choises[0], choises[1])
-# print ask(["goncalo", "ana"])
+class System(object):
+    """Common to all Systems"""
+    def __init__(self, values):
+        super(System, self).__init__()
+        self.values = values
+        self.n = len(self.values)
+        self.points = {}
+        self.create_points()
 
+    def create_points(self):
+        for value in self.values:
+            self.points[value] = 0
+        return self.points
 
-def chose_the_bests(values):
-    n = len(values)
-    for i in xrange(0, n, 2):
-        # print values
-        try:
-            answer = None
-            while not answer:
-                answer = ask([values[i], values[i + 1]])
-                print "answer: ", answer
-            if answer in ["q", "quit"]:
-                print "bye"
-                return
+    def dispute_all_matches(self, matches):
+        self.all_results = []
+        for match in matches:
+            result = self.dispute_one_match(match)
+            self.all_results.append(result)
+            self.add_points(choises=match, answer=result)
+
+    def dispute_one_match(self, choises):
+        skip = 0
+        while True:
+            print "\n\nWhat do you perfer?  ({} to skip)".format(skip)
+            answer = raw_input("1 - {}  vs  2 - {}   ".format(choises[0], choises[1]))
+            try:
+                answer = int(answer)
+            except ValueError:
+                print "\nplease insert a number\n"
+                continue
+            if answer in [skip, 1, 2]:
+                break
             else:
-                values.remove(answer)
-        except IndexError:
-            pass
-    return values
+                print "\nplease insert {} to skip, if you don't know what is the better".format(skip)
+                print "or 1 for {} or 2 for {}\n\n\n".format(choises[0], choises[1])
+        return answer
+    # print match(["goncalo", "ana"])
+
+    def order_points(self):
+        if isinstance(self.points, dict):
+            self.points = self.points.items()
+        self.points = sorted(self.points)
+        self.points = sorted(self.points, key=lambda x: -x[1])
+
+    def add_points(self, choises, answer=None):
+        # print "choises: ", choises
+        # print "points: ", points
+        if isinstance(choises, str):  # in the case of odd numbers, it still wins points
+            if isinstance(self.points, list):
+                self.points = OrderedDict(self.points)
+            self.points[choises] += 3
+            return dict(self.points)
+        # print "answer: ", answer
+        answer = int(answer)
+        if answer == 0:
+            self.points[choises[0]] += 1
+            self.points[choises[1]] += 1
+        else:
+            if isinstance(self.points, list):
+                self.points = OrderedDict(self.points)
+            self.points[choises[answer - 1]] += 3
+        self.points = dict(self.points)
+
+    # presentation:
+    def formated_results(self, msg="{}   ({} points)"):
+        formated = ""
+        print "self.points", self.points
+        for key, value in self.points:
+            formated += msg.format(key, value) + "\n"
+        return formated
 
 
-def create_points(values):
-    points = {}
-    for value in values:
-        points[value] = 0
-    return points
+class KnockoutSystem(System):
+    """Knockout system"""
+    def __init__(self, values=[]):
+        super(KnockoutSystem, self).__init__(values)
+        self.name = "Knockout"
+        self.n_matches = int(self.n - 1)
+        # ceil(log2 n) * floor(n / 2)
+        print "self.n", self.n, "self.values", self.values
+        self.n_rounds = int(math.ceil(math.log(self.n, 2)))
+        self.left = list(self.values)
+
+    def eliminate_all_losers(self):
+        print "self.left", self.left
+        all_losers = []
+        print "self.all_results", self.all_results
+        for i, result in enumerate(self.all_results):
+            if result:  # result != 0
+                all_losers.append(self.left[result % 2 + i * 2])
+        print "all_losers", all_losers
+        for loser in all_losers:
+            self.left.remove(loser)
+        print "self.left", self.left
+
+    def generate_1round_matches(self, random_matches=True):
+        print "generate_1round_matches"
+        if random_matches:
+            random.shuffle(self.left)
+        self.order_points()
+        is_odd = len(self.left) % 2
+        matches = []
+        for i in xrange(0, len(self.left) - is_odd, 2):
+            matches.append((self.left[i], self.left[i + 1]))
+        if is_odd:
+            self.add_points(choises=points[-1][0])
+        return matches
+
+    def generate_matches(self):
+        print "generate_matches"
+        for round_i in xrange(self.n_rounds):
+            matches = self.generate_1round_matches(self.left)
+            self.dispute_all_matches(matches)
+            self.eliminate_all_losers()
+            print "self.all_results", self.all_results
+            self.order_points()
 
 
-def generate_random_matches(values):
-    n = len(values)
-    matches = []
-    for i in xrange(n):
-        for j in xrange(i):
-            matches.append((values[i], values[j]))
-    random.shuffle(matches)
-    return matches
-# print generate_random_matches(["a", "b", "c"])
+class LeagueSystem(System):
+    """League system"""
+    def __init__(self, values=[]):
+        super(LeagueSystem, self).__init__(values)
+        self.name = "League"
+        self.n_matches = int(math.factorial(self.n)/(2 * math.factorial(self.n - 2)))
+
+    def generate_random_matches(self):
+        matches = []
+        for i in xrange(self.n):
+            for j in xrange(i):
+                matches.append((self.values[i], self.values[j]))
+        random.shuffle(matches)
+        return matches
+    # print generate_random_matches(["a", "b", "c"])
 
 
-def generate_1round_swiss_system_matches(points):
-    points = order_points(points)
-    is_odd = len(points) % 2
-    n = len(points) - is_odd
-    matches = []
-    for i in xrange(0, n, 2):
-        matches.append((points[i][0], points[i + 1][0]))
-    if is_odd:
-        points = add_points(choises=points[-1][0], points=points)
-    return matches
+class SwissSystem(System):
+    """docstring for swiss"""
+    def __init__(self, values=[]):
+        super(SwissSystem, self).__init__(values)
+        self.name = "Swiss"
+        self.n_matches = int(math.ceil(math.log(self.n, 2)) * math.floor(self.n / 2))
+
+    def generate_1round_swiss_system_matches(self):
+        self.order_points()
+        is_odd = self.n % 2
+        matches = []
+        for i in xrange(0, self.n - is_odd, 2):
+            matches.append((self.points[i][0], self.points[i + 1][0]))
+        if is_odd:
+            self.add_points(choises=self.points[-1][0])
+        return matches
+
+    def swiss_system_matches(self):
+        # ceil(log2 n) * floor(n / 2)
+        n_rounds = int(math.ceil(math.log(self.n, 2)))
+        for round_i in xrange(n_rounds):
+            matches = self.generate_1round_swiss_system_matches()
+            self.dispute_all_matches(matches)
+            self.order_points()
 
 
-def swiss_system_matches(points):
-    # ceil(log2 n) * floor(n / 2)
-    n_rounds = int(math.ceil(math.log(len(points), 2)))
-    for round_i in xrange(n_rounds):
-        matches = generate_1round_swiss_system_matches(points)
-        points = dispute_all_matches(matches, points)
-        points = order_points(points)
-    return points
+class Run(object):
+    """Run the script"""
+    def __init__(self):
 
+        clear_screen()
+        args = get_args()
+        values = get_values(args)
+        if "" in values:
+            values.remove("")
+        print "values: ", values
+        # points = create_points(values)
+        self.values = values
 
-def dispute_one_match(choises):
-    skip = 0
-    while True:
-        print "\n\nWhat do you perfer?  ({} to skip)".format(skip)
-        answer = raw_input("1 - {}  vs  2 - {}   ".format(choises[0], choises[1]))
-        try:
-            answer = int(answer)
-        except ValueError:
-            print "\nplease insert a number\n"
-            continue
+        self.league_system = LeagueSystem(values=self.values)
+        self.swiss_system = SwissSystem(values=self.values)
+        self.knockout_system = KnockoutSystem(values=self.values)
+        self.all_championships = [self.knockout_system, self.league_system, self.swiss_system]
+        self.formated_menu()
+        while True:
+            print self.msg
+            option = raw_input("what tournament do you want? ").lower()
+            self.handle_the_options(option)
+
+    def formated_menu(self):
+        self.msg = ""
+        for championship in self.all_championships:
+            self.msg += "(%s)%s (%s matches), " % \
+                (championship.name[0], championship.name[1:], championship.n_matches)
+        self.msg += "... (Q)uit"
+
+    def handle_the_options(self, option):
+        if option in ["l", "league"]:
+            self.league_system = LeagueSystem(values=self.values)
+            matches = self.league_system.generate_random_matches()
+            # print "matches: ", matches
+            self.league_system.dispute_all_matches(matches)
+            self.league_system.order_points()
+            print self.league_system.formated_results()
+        elif option in ["s", "swiss system"]:
+            self.swiss_system = SwissSystem(values=self.values)
+            self.swiss_system.swiss_system_matches()
+            self.swiss_system.points
+            print self.swiss_system.formated_results()
+        elif option in ["k", "knockout"]:
+            self.knockout_system = KnockoutSystem(values=self.values)
+            self.knockout_system.generate_matches()
+
+            # while len(self.values) > 1:
+            #     random.shuffle(self.values)
+            #     self.values = self.chose_the_bests()
+            #     print self.values
+            # print "\n\n", self.values[0]
+        elif option in ["q", "quit"]:
+            sys.exit(0)
+        else:
+            print "\n\nplease insert:"
+
+    def chose_the_bests(self):
+        # print values
+        n = len(self.values)
+        for i in xrange(0, n, 2):
+            # print self.values, i
+            try:
+                answer = None
+                while not answer:
+                    answer = self.ask([self.values[i], self.values[i + 1]])
+                    print "eliminated: ", answer
+                if answer in ["q", "quit"]:
+                    print "bye"
+                    return
+                else:
+                    self.values.remove(answer)
+            except IndexError:
+                pass
+        return self.values
+
+    def ask(self, choises):
+        skip = 0
+        while True:
+            print "\n\nWhat do you perfer?  ({} to skip)".format(skip)
+            answer = raw_input("1 - {}  vs  2 - {}   ".format(choises[0], choises[1]))
+            if answer in ["q", "quit"]:
+                sys.exit(0)
+            try:
+                answer = int(answer)
+                break
+            except ValueError:
+                print "please select {}, 1 or 2".format(skip)
+                continue
+        convert = {1: 1, 2: 0}
+        # print "answer: ", answer
         if answer in [skip, 1, 2]:
-            break
+            return choises[convert[answer]]
         else:
             print "\nplease insert {} to skip, if you don't know what is the better".format(skip)
             print "or 1 for {} or 2 for {}\n\n\n".format(choises[0], choises[1])
-    return answer
-# print match(["goncalo", "ana"])
+    # print ask(["goncalo", "ana"])
 
-
-def add_points(choises, points, answer=None):
-    if len(choises) == 1:  # in the case of odd numbers, it still wins points
-        if isinstance(points, list):
-            points = OrderedDict(points)
-        points[choises] += 3
-        return dict(points)
-    answer = int(answer)
-    if answer == 0:
-        points[choises[0]] += 1
-        points[choises[1]] += 1
-    else:
-        if isinstance(points, list):
-            points = OrderedDict(points)
-        points[choises[answer - 1]] += 3
-    return dict(points)
-
-
-def dispute_all_matches(matches, points):
-    for match in matches:
-        result = dispute_one_match(match)
-        points = add_points(choises=match, points=points, answer=result)
-    return points
-
-
-def order_points(points):
-    if isinstance(points, dict):
-        points = points.items()
-    # sort keys:
-    points = sorted(points)
-    # return sorted values
-    return sorted(points, key=lambda x: -x[1])
-
-
-# presentation:
-def formated_results(ordered_points, msg="{}   ({} points)"):
-    formated = ""
-    for key, value in ordered_points:
-        formated += msg.format(key, value) + "\n"
-    return formated
-
-
-def formated_menu(n):
-    msg = "championship ({} matches), swiss system ({} matches), league ({} matches)"
-    n_championship_matches = int(math.factorial(n)/(2 * math.factorial(n - 2)))
-    n_swiss_system_matches = int(math.ceil(math.log(n, 2)) * math.floor(n / 2))
-    n_league_matches = int(n - 1)
-    return msg.format(n_championship_matches, n_swiss_system_matches, n_league_matches)
-
-
-def handle_the_options(option, values, points):
-    if option in ["c", "championship"]:
-        matches = generate_random_matches(values)
-        # print "matches: ", matches
-        points = dispute_all_matches(matches, points)
-        # print "points: ", points
-        points = order_points(points)
-        print formated_results(points)
-    elif option in ["s", "swiss system"]:
-        points = swiss_system_matches(points)
-        print formated_results(points)
-    elif option in ["l", "league"]:
-        while len(values) > 1:
-            random.shuffle(values)
-            values = chose_the_bests(values)
-            # print values
-        print "\n\n", values[0]
-    elif option in ["q", "quit"]:
-        sys.exit(0)
-    else:
-        print "\n\nplease insert:"
-        print "(c) for championship,(s) for swiss system, or (l) for league\n"
-
-
-def run():
-    clear_screen()
-    args = get_args()
-    values = get_values(args)
-    if "" in values:
-        values.remove("")
-    # print "values: ", values
-    points = create_points(values)
-    # print "points: ", points
-    n = len(points)
-    while True:
-        print formated_menu(n)
-        option = raw_input("what tournament do you want? ").lower()
-        handle_the_options(option, values, points)
 
 if __name__ == '__main__':
-    run()
+    Run()
+
+#
+# END
+#

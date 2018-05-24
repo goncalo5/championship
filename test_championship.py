@@ -85,8 +85,13 @@ class TestChampionship(unittest.TestCase):
 
         choises = "c"
         points = [("a", 6), ("b", 3), ("c", 0)]  # ordered
-        result = championship.add_points(choises, points, answer)
+        result = championship.add_points(choises, points)
         self.assertEqual(result, {"a": 6, "b": 3, "c": 3})
+
+        choises = "ghi"
+        points = [("abc", 6), ("def", 3), ("ghi", 0)]  # ordered
+        result = championship.add_points(choises, points)
+        self.assertEqual(result, {"abc": 6, "def": 3, "ghi": 3})
 
     # def test_dispute_all_matches(self):
     #     matches = [("a", "c"), ("b", "c"), ("a", "b")]
