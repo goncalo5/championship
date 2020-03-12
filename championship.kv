@@ -1,0 +1,59 @@
+<InitScreen@Screen>:
+    Button:
+        text: "New Championship"
+        on_press: root.manager.current = "screen2"
+
+<InputScreen@Screen>:
+    BoxLayout:
+        orientation: "vertical"
+        TextInput:
+            id: team_input
+        BoxLayout:
+            orientation: "horizontal"
+            Button:
+                text: "next"
+                on_press:
+                    app.press_next(team_input)
+            Button:
+                text: "done"
+                on_press:
+                    app.press_done(team_input)
+
+<ChoosingTeamScreen@Screen>:
+    BoxLayout:
+        orientation: "horizontal"
+        Button:
+            text: app.team1
+            on_press:
+                app.press_option(0)
+        Button:
+            text: app.team2
+            on_press:
+                app.press_option(1)
+
+<WinnerScreen@Screen>:
+    Label:
+        text: "winner: %s" % app.list_of_teams
+
+<ScreenManager>:
+    id: screen_manager
+    init_screen: init_screen
+    input_screen: input_screen
+    choosing_team_screen: choosing_team_screen
+    winner_screen: winner_screen
+    InitScreen:
+        id: init_screen
+        name: "screen1"
+        manager: screen_manager
+    InputScreen:
+        id: input_screen
+        name: "screen2"
+        manager: screen_manager
+    ChoosingTeamScreen:
+        id: choosing_team_screen
+        name: "choosing_team_screen"
+        manager: screen_manager
+    WinnerScreen:
+        id: winner_screen
+        name: "winner_screen"
+        manager: screen_manager
